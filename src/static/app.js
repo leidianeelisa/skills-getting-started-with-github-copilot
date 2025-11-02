@@ -13,6 +13,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // Clear loading message
       activitiesList.innerHTML = "";
 
+      // Reset activity select to avoid duplicate options when re-fetching
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
+
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
@@ -43,7 +46,42 @@ document.addEventListener("DOMContentLoaded", () => {
           details.participants.forEach((p) => {
             const li = document.createElement("li");
             li.className = "participant-item";
-            li.textContent = p;
+            
+            const emailSpan = document.createElement("span");
+            emailSpan.textContent = p;
+            li.appendChild(emailSpan);
+            
+            const deleteBtn = document.createElement("span");
+            deleteBtn.innerHTML = "✕";
+            deleteBtn.className = "delete-participant";
+            deleteBtn.title = "Remove participant";
+            deleteBtn.onclick = async () => {
+              try {
+                const response = await fetch(
+                  `/activities/${encodeURIComponent(name)}/signup?email=${encodeURIComponent(p)}`,
+                  {
+                    method: "DELETE",
+                  }
+                );
+                
+                if (response.ok) {
+                  li.remove();
+                  if (participantsUl.children.length === 0) {
+                    const emptyLi = document.createElement("li");
+                    emptyLi.className = "participant-empty";
+                    emptyLi.textContent = "No participants yet";
+                    participantsUl.appendChild(emptyLi);
+                  }
+                } else {
+                  const error = await response.json();
+                  console.error("Error removing participant:", error);
+                }
+              } catch (error) {
+                console.error("Error removing participant:", error);
+              }
+            };
+            li.appendChild(deleteBtn);
+            
             participantsUl.appendChild(li);
           });
         } else {
@@ -91,6 +129,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Refresh activities list so UI reflects the new participant without requiring a page reload
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
